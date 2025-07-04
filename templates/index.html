@@ -1,0 +1,163 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    WG Expense Tracker
+{% endblock %}
+
+{% block main %}
+    <div class="container">
+        <div class="row mb-3">
+            <div class="col">
+                <h1>Balance: {{ symbol }}{{ balance }}</h1>
+                {% if balance_error %}
+                    <p>{{ balance_error }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Currency and Balance Update Form -->
+        <div class="d-flex justify-content-center align-items-center mb-4">
+            <div class="col-auto">
+                <form action="/update_currency" method="post" id="currency-form">
+                    <select class="form-select" name="currency_code" onchange="document.getElementById('currency-form').submit()">
+                        <option disabled>Type</option>
+                        {% for code, symbol in currency_symbols.items() %}
+                            <option value="{{ code }}" {% if session.get("currency_code") == code %}selected{% endif %}>
+                                {{ code }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+            <div class="col-auto">
+                <form action="/update_balance" method="post" class="d-flex align-items-center">
+                    <input autocomplete="off" class="form-control me-2" name="update_balance" placeholder="Update Balance" type="number" required>
+                    <button class="btn btn-outline-primary" type="submit">Update</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Income & Expense Forms -->
+        <div class="row mb-4">
+            <!-- Add Income -->
+            <div class="col-md-6">
+                <button class="btn btn-success mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseIncome" aria-expanded="false" aria-controls="collapseIncome">
+                    Add Income
+                </button>
+                <div class="collapse" id="collapseIncome">
+                    <div class="card card-body">
+                        <form action="/add_income" method="post">
+                            <div class="mb-2">
+                                <input autocomplete="off" class="form-control" name="date_income" type="date" placeholder="YYYY-MM-DD" required>
+                            </div>
+                            <div class="mb-2">
+                                <input autocomplete="off" class="form-control" name="income" type="number" placeholder="Income" min="1" required>
+                            </div>
+                            <div class="mb-2">
+                                <select class="form-select" name="type_income" required>
+                                    <option disabled selected value="">Type</option>
+                                    {% for income_type in income_types %}
+                                        <option value="{{ income_type }}">{{ income_type }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <input autocomplete="off" class="form-control" name="notes_income" placeholder="Notes (optional)" type="text">
+                            </div>
+                            <button class="btn btn-success" type="submit">Submit</button>
+                        </form>
+                    </div>
+                </div>
+                {% if income_error %}
+                    <p class="text-danger mt-2">{{ income_error }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Add Expense -->
+            <div class="col-md-6">
+                <button class="btn btn-danger mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExpense" aria-expanded="false" aria-controls="collapseExpense">
+                    Add Expense
+                </button>
+                <div class="collapse" id="collapseExpense">
+                    <div class="card card-body">
+                        <form action="/add_expense" method="post">
+                            <div class="mb-2">
+                                <input autocomplete="off" class="form-control" name="date_expense" type="date" placeholder="YYYY-MM-DD" required>
+                            </div>
+                            <div class="mb-2">
+                                <input autocomplete="off" class="form-control" name="expense" type="number" placeholder="Expense" min="1" required>
+                            </div>
+                            <div class="mb-2">
+                                <select class="form-select" name="type_expense" required>
+                                    <option disabled selected value="">Type</option>
+                                    {% for expense_type in expense_types %}
+                                        <option value="{{ expense_type }}">{{ expense_type }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <input autocomplete="off" class="form-control" name="notes_expense" placeholder="Notes (optional)" type="text">
+                            </div>
+                            <button class="btn btn-danger" type="submit">Submit</button>
+                        </form>
+                    </div>
+                </div>
+                {% if expense_error %}
+                    <p class="text-danger mt-2">{{ expense_error }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <table class="table class-stripped">
+        <thead>
+            <tr>
+                <th class="text-start">Date</th>
+                <th class="text-end">Debit</th>
+                <th class="text-end">Type</th>
+                <th class="text-end">Notes</th>
+                <th class="text-end"></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                {% for statement in statements %}
+                    <tr>
+                        <td class="text-start">{{ statement.date }}</td>
+                        {% if statement.debit < 0 %}
+                            <td class="text-end">- {{ symbol }}{{ "{:,}".format(-statement.debit) }}</td>
+                        {% else %}
+                            <td class="text-end">+ {{ symbol }}{{ "{:,}".format(statement.debit) }}</td>
+                        {% endif %}
+                        <td class="text-end">{{ statement.type }}</td>
+                        <td class="text-end">{{ statement.notes }}</td>
+                        <td>
+                            <form action="/delete_statement/{{ statement.id }}" method="post" style="display:inline;">
+                                <button class="btn btn-danger btn-sm" type="submit" onclick="return confirm('Delete this entry?');">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('index', page=page-1, entries=entries) }}">Previous</a>
+                </li>
+            {% endif %}
+            {% for p in range(1, total_pages + 1) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('index', page=p, entries=entries) }}">{{ p }}</a>
+                </li>
+            {% endfor %}
+            {% if page < total_pages %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('index', page=page+1, entries=entries) }}">Next</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+{% endblock %}
